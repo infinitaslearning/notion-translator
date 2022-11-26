@@ -19,6 +19,8 @@ This action expects a Notion database with the following properties, this will b
 
 You can set the names of these columns to be whatever you like (see below).
 
+You can see an example here: https://infinitaslearning.notion.site/Translator-3785106f94ab40d2ab4a607aec32e3b3
+
 ## Usage
 
 This is typically deployed as a scheduled action:
