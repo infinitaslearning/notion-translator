@@ -26,7 +26,7 @@ inputs:
     description: 'Database field name to maintain translation status'
     required: true
     default: 'Status'
-  field_to_translate_status:
+  field_to_translate_result:
     description: 'Database field name to add the translated result'
     required: true
     default: 'Result'
