@@ -32,7 +32,6 @@ inputs:
     default: 'Result'
   field_to_translate_language:
     description: 'Database field name for input language of text'    
-    default: 'Language'
 outputs:
   status: 
     description: 'The status of the translation'
