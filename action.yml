@@ -1,7 +1,7 @@
 name: 'Notion translator'
 description: 'A github action that translates fields in a notion database'
 branding:
-  icon: git-pull-request
+  icon: globe
   color: blue
 inputs:
   notion_token:
