@@ -19,7 +19,7 @@ const translate = async ({ notion, database, rows, fields }) => {
   for (const row of rows) {
     const inputText = getText(row.properties[fields.input].rich_text)
     const inputLanguage = fields.language ? getText(row.properties[fields.language].rich_text) || defaultLanguageFrom : defaultLanguageFrom
-    const translatedText = await translator(inputText, { from: inputLanguage, to: defaultLanguageTo })
+    const translatedText = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
     await updateNotionRow(row, translatedText, { notion, database, fields })
   }
   core.info(`Completed with ${updatedRows} created and ${erroredRows} with errors`)
