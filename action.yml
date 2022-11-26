@@ -1,0 +1,41 @@
+name: 'Notion translator'
+description: 'A github action that translates fields in a notion database'
+branding:
+  icon: git-pull-request
+  color: blue
+inputs:
+  notion_token:
+    description: 'Notion API token'
+    required: true    
+  database:
+    description: 'Parent database to translate'
+    required: true
+  default_language_from:
+    description: 'Language to assume to translate from if not provided in a column'
+    required: true
+    default: 'nl'
+  default_language_to:
+    description: 'Language to translate to'
+    required: true
+    default: 'en'
+  field_to_translate:
+    description: 'Database field name to translate'
+    required: true
+    default: 'Input'
+  field_to_translate_status:
+    description: 'Database field name to maintain translation status'
+    required: true
+    default: 'Status'
+  field_to_translate_status:
+    description: 'Database field name to add the translated result'
+    required: true
+    default: 'Result'
+  field_to_translate_language:
+    description: 'Database field name for input language of text'    
+    default: 'Language'
+outputs:
+  status: 
+    description: 'The status of the translation'
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
