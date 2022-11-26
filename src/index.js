@@ -13,14 +13,12 @@ try {
     logLevel: LogLevel.ERROR
   })
 
-  console.log('here')
-
   const refreshData = async () => {
     core.startGroup('🗂️  Loading data to translate ...')
     const { rows, fields } = await loadData({ core, notion })
     core.info(`Found ${rows.length} rows in the database to translate`)
     core.endGroup()
-    core.startGroup('🗂️  Translating ...')
+    core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
     await translate({ core, notion, rows, fields, database })
     core.endGroup()
   }

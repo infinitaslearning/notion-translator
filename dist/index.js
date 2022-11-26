@@ -7592,8 +7592,8 @@ const core = __nccwpck_require__(2186)
 const loadData = async ({ notion }) => {
   const translationDb = core.getInput('database')
   const input = core.getInput('field_to_translate')
-  const status = core.getInput('field_to_translate_status')
   const result = core.getInput('field_to_translate_result')
+  const status = core.getInput('field_to_translate_status')
   const language = core.getInput('field_to_translate_language')
 
   const getDatabaseRows = async (databaseId, rowFunction, startCursor) => {
@@ -7612,7 +7612,11 @@ const loadData = async ({ notion }) => {
     }
   }
 
+  const inputs = input.split(',').map((field) => { return field.trim() })
+  const results = result.split(',').map((field) => { return field.trim() })
+
   const rows = []
+  const translations = {}
 
   let error = false
 
@@ -7627,20 +7631,25 @@ const loadData = async ({ notion }) => {
       structure[dbStructure.properties[property].name] = dbStructure.properties[property].type
     })
 
-    if (!input || structure[input] !== 'rich_text') {
-      error = true
-      core.error(`The input field ${input} must exist and be of type "Text"`)
+    const checkField = (field, type, typeDescription) => {
+      if (!field || structure[field] !== type) {
+        error = true
+        core.error(`The field ${field} must exist in the Notion database and be of type "${typeDescription}"`)
+      }
     }
 
-    if (!result || structure[result] !== 'rich_text') {
+    if (inputs.length !== results.length) {
       error = true
-      core.error(`The result field ${result} must exist and be of type "Text"`)
+      core.error(`You have mismatched input (${inputs.length}) and result (${results.length}) settings - they need to be the same length!`)
     }
 
-    if (!status || structure[status] !== 'checkbox') {
-      error = true
-      core.error(`The status field ${status} must exist and be of type "Checkbox"`)
+    for (let i = 0; i < inputs.length; i++) {
+      translations[inputs[i]] = results[i]
+      checkField(inputs[i], 'rich_text', 'Text')
+      checkField(results[i], 'rich_text', 'Text')
     }
+
+    checkField(status, 'checkbox', 'Checkbox')
 
     await getDatabaseRows(translationDb, (row) => {
       if (!row.properties[status].checkbox) {
@@ -7656,9 +7665,9 @@ const loadData = async ({ notion }) => {
   return {
     rows,
     fields: {
-      input,
+      inputs,
       status,
-      result,
+      translations,
       language
     }
   }
@@ -7691,26 +7700,32 @@ const defaultLanguageTo = core.getInput('default_language_to')
 
 const translate = async ({ notion, database, rows, fields }) => {
   for (const row of rows) {
-    const inputText = getText(row.properties[fields.input].rich_text)
+    const translations = {}
     const inputLanguage = fields.language ? getText(row.properties[fields.language].rich_text) || defaultLanguageFrom : defaultLanguageFrom
-    const translatedText = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
-    await updateNotionRow(row, translatedText, { notion, database, fields })
+    for (const input of fields.inputs) {
+      const inputText = getText(row.properties[input].rich_text)
+      translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+    }
+    await updateNotionRow(row, translations, { notion, database, fields })
   }
   core.info(`Completed with ${updatedRows} created and ${erroredRows} with errors`)
 }
 
-const updateNotionRow = async (row, translatedText, { notion, database, fields }) => {
+const updateNotionRow = async (row, translations, { notion, database, fields }) => {
   try {
     const properties = {}
-    properties[fields.result] = {
-      rich_text: [
-        {
-          text: {
-            content: translatedText
+    for (const input of fields.inputs) {
+      properties[fields.translations[input]] = {
+        rich_text: [
+          {
+            text: {
+              content: translations[input]
+            }
           }
-        }
-      ]
+        ]
+      }
     }
+
     properties[fields.status] = {
       checkbox: true
     }
@@ -7930,14 +7945,12 @@ try {
     logLevel: LogLevel.ERROR
   })
 
-  console.log('here')
-
   const refreshData = async () => {
     core.startGroup('🗂️  Loading data to translate ...')
     const { rows, fields } = await loadData({ core, notion })
     core.info(`Found ${rows.length} rows in the database to translate`)
     core.endGroup()
-    core.startGroup('🗂️  Translating ...')
+    core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
     await translate({ core, notion, rows, fields, database })
     core.endGroup()
   }

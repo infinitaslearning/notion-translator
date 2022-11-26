@@ -48,10 +48,19 @@ jobs:
          field_to_translate_language: 'Language'
 
 ```
-
+https://www.notion.so/infinitaslearning/01bc4d5bf56842d3bf0dd78623b1a000?v=9864fa167f1f442baa10839f06a45912
 The `Language` column is optional - only use it if the language can vary by row.
 
 To get the database ID, simply browse to it, click on the '...' in Notion, and get a 'Copy link'.  The GUID at the end of the URL (but before the `?v=`) is the id, this works on both embedded and full page databases.
+
+### Multiple Columns
+
+You can translate multiple columns using comma separated lists of the same length for input and output:
+
+```
+field_to_translate: 'Input 1, Input 2'
+field_to_translate_result: 'Result 1, Result 2'
+```
 
 ## Development
 

@@ -17,26 +17,32 @@ const defaultLanguageTo = core.getInput('default_language_to')
 
 const translate = async ({ notion, database, rows, fields }) => {
   for (const row of rows) {
-    const inputText = getText(row.properties[fields.input].rich_text)
+    const translations = {}
     const inputLanguage = fields.language ? getText(row.properties[fields.language].rich_text) || defaultLanguageFrom : defaultLanguageFrom
-    const translatedText = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
-    await updateNotionRow(row, translatedText, { notion, database, fields })
+    for (const input of fields.inputs) {
+      const inputText = getText(row.properties[input].rich_text)
+      translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+    }
+    await updateNotionRow(row, translations, { notion, database, fields })
   }
   core.info(`Completed with ${updatedRows} created and ${erroredRows} with errors`)
 }
 
-const updateNotionRow = async (row, translatedText, { notion, database, fields }) => {
+const updateNotionRow = async (row, translations, { notion, database, fields }) => {
   try {
     const properties = {}
-    properties[fields.result] = {
-      rich_text: [
-        {
-          text: {
-            content: translatedText
+    for (const input of fields.inputs) {
+      properties[fields.translations[input]] = {
+        rich_text: [
+          {
+            text: {
+              content: translations[input]
+            }
           }
-        }
-      ]
+        ]
+      }
     }
+
     properties[fields.status] = {
       checkbox: true
     }
