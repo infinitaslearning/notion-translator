@@ -6,7 +6,17 @@ branding:
 inputs:
   notion_token:
     description: 'Notion API token'
+    required: true
+  translation_engine:
+    description: 'Engine to use for translation (see: https://www.npmjs.com/package/translate)'
     required: true    
+    default: 'google'
+  translation_key:
+    description: 'Key to use for translation if required (see: https://www.npmjs.com/package/translate)'
+    required: false    
+  translation_url:
+    description: 'Url to use for translation if required (see: https://www.npmjs.com/package/translate)'
+    required: false        
   database:
     description: 'Parent database to translate'
     required: true

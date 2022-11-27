@@ -45,7 +45,7 @@ const loadData = async ({ notion }) => {
     const checkField = (field, type, typeDescription) => {
       if (!field || structure[field] !== type) {
         error = true
-        core.error(`The field ${field} must exist in the Notion database and be of type "${typeDescription}"`)
+        core.error(`The field ${field} must exist in the Notion database and be of type ${typeDescription} but instead found ${structure[field]}`)
       }
     }
 

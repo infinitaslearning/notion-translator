@@ -12,6 +12,19 @@ const getText = (richText) => {
   }
 }
 
+// Configure translator
+const translationEngine = core.getInput('translation_engine')
+const translationKey = core.getInput('translation_key')
+const translationUrl = core.getInput('translation_url')
+if (translationEngine) {
+  translator.engine = translationEngine
+}
+if (translationKey) {
+  translator.key = translationKey
+}
+if (translationUrl) {
+  translator.url = translationUrl
+}
 const defaultLanguageFrom = core.getInput('default_language_from')
 const defaultLanguageTo = core.getInput('default_language_to')
 
@@ -21,7 +34,12 @@ const translate = async ({ notion, database, rows, fields }) => {
     const inputLanguage = fields.language ? getText(row.properties[fields.language].rich_text) || defaultLanguageFrom : defaultLanguageFrom
     for (const input of fields.inputs) {
       const inputText = getText(row.properties[input].rich_text)
-      translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+      try {
+        translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+      } catch (ex) {
+        core.error(`Error with translation: ${ex.message}`)
+        process.exit(1)
+      }
     }
     await updateNotionRow(row, translations, { notion, database, fields })
   }
@@ -32,14 +50,16 @@ const updateNotionRow = async (row, translations, { notion, database, fields }) 
   try {
     const properties = {}
     for (const input of fields.inputs) {
-      properties[fields.translations[input]] = {
-        rich_text: [
-          {
-            text: {
-              content: translations[input]
+      if (translations[input]) {
+        properties[fields.translations[input]] = {
+          rich_text: [
+            {
+              text: {
+                content: translations[input]
+              }
             }
-          }
-        ]
+          ]
+        }
       }
     }
 
