@@ -40,6 +40,9 @@ jobs:
        with:          
          notion_token: ${{ secrets.NOTION_TOKEN }}
          database: 2b26b4290cc84d95ad3e93c3255277a1    
+         translation_engine: 'deepl'
+         translation_key: ${{ secrets.DEEPL_KEY }}
+         translation_url: 'api-free.deepl.com'
          default_language_from: nl
          default_language_to: en
          field_to_translate: 'Input'
