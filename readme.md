@@ -26,7 +26,7 @@ You can see an example here: https://infinitaslearning.notion.site/Translator-37
 This is typically deployed as a scheduled action:
 
 ```yaml
-name: Catalog
+name: Notion Translator
 on:
   schedule:
     - cron:  '30 5 * * *'
