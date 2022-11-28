@@ -7688,11 +7688,21 @@ let updatedRows = 0
 let erroredRows = 0
 
 const getText = (richText) => {
-  if (richText.length > 0) {
+  if (richText && richText.length > 0) {
     return richText[0].plain_text
   } else {
     return ''
   }
+}
+
+const getLanguage = (language) => {
+  if (language.rich_text) {
+    return getText(language.rich_text)
+  }
+  if (language.formula) {
+    return language.formula[language.formula.type]
+  }
+  return ''
 }
 
 // Configure translator
@@ -7714,7 +7724,7 @@ const defaultLanguageTo = core.getInput('default_language_to')
 const translate = async ({ notion, database, rows, fields }) => {
   for (const row of rows) {
     const translations = {}
-    const inputLanguage = fields.language ? getText(row.properties[fields.language].rich_text) || defaultLanguageFrom : defaultLanguageFrom
+    const inputLanguage = fields.language ? getLanguage(row.properties[fields.language]) || defaultLanguageFrom : defaultLanguageFrom
     for (const input of fields.inputs) {
       const inputText = getText(row.properties[input].rich_text)
       try {
