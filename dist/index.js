@@ -7689,7 +7689,7 @@ let erroredRows = 0
 
 const getText = (richText) => {
   if (richText && richText.length > 0) {
-    return richText[0].plain_text
+    return richText[0].plain_text.trim()
   } else {
     return ''
   }
@@ -7728,9 +7728,11 @@ const translate = async ({ notion, database, rows, fields }) => {
     for (const input of fields.inputs) {
       const inputText = getText(row.properties[input].rich_text)
       try {
-        translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+        if (inputText) {
+          translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+        }
       } catch (ex) {
-        core.error(`Error with translation: ${ex.message}`)
+        core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
         process.exit(1)
       }
     }
