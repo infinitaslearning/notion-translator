@@ -7967,29 +7967,35 @@ const { Client, LogLevel } = __nccwpck_require__(324)
 const { loadData } = __nccwpck_require__(7639)
 const { translate } = __nccwpck_require__(2008)
 
-try {
-  const NOTION_TOKEN = core.getInput('notion_token')
-  const database = core.getInput('database')
+const main = () => {
+  try {
+    const NOTION_TOKEN = core.getInput('notion_token')
+    const database = core.getInput('database')
 
-  core.debug('Creating notion client ...')
-  const notion = new Client({
-    auth: NOTION_TOKEN,
-    logLevel: LogLevel.ERROR
-  })
+    core.debug('Creating notion client ...')
+    const notion = new Client({
+      auth: NOTION_TOKEN,
+      logLevel: LogLevel.ERROR
+    })
 
-  const refreshData = async () => {
-    core.startGroup('🗂️  Loading data to translate ...')
-    const { rows, fields } = await loadData({ core, notion })
-    core.info(`Found ${rows.length} rows in the database to translate`)
-    core.endGroup()
-    core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
-    await translate({ core, notion, rows, fields, database })
-    core.endGroup()
+    const refreshData = async () => {
+      core.startGroup('🗂️  Loading data to translate ...')
+      const { rows, fields } = await loadData({ core, notion })
+      core.info(`Found ${rows.length} rows in the database to translate`)
+      core.endGroup()
+      core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
+      await translate({ core, notion, rows, fields, database })
+      core.endGroup()
+    }
+
+    refreshData()
+  } catch (error) {
+    core.setFailed(error.message)
   }
+}
 
-  refreshData()
-} catch (error) {
-  core.setFailed(error.message)
+if (require.main === require.cache[eval('__filename')]) {
+  main()
 }
 
 })();

@@ -38,7 +38,7 @@ if (translationUrl) {
 const defaultLanguageFrom = core.getInput('default_language_from')
 const defaultLanguageTo = core.getInput('default_language_to')
 
-const translate = async ({ notion, database, rows, fields }) => {
+const translate = async ({ notion, rows, fields }) => {
   for (const row of rows) {
     const translations = {}
     const inputLanguage = fields.language ? getLanguage(row.properties[fields.language]) || defaultLanguageFrom : defaultLanguageFrom
@@ -53,12 +53,12 @@ const translate = async ({ notion, database, rows, fields }) => {
         process.exit(1)
       }
     }
-    await updateNotionRow(row, translations, { notion, database, fields })
+    await updateNotionRow(row, translations, { notion, fields })
   }
   core.info(`Completed with ${updatedRows} created and ${erroredRows} with errors`)
 }
 
-const updateNotionRow = async (row, translations, { notion, database, fields }) => {
+const updateNotionRow = async (row, translations, { notion, fields }) => {
   try {
     const properties = {}
     for (const input of fields.inputs) {
