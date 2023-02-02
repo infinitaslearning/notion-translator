@@ -4,12 +4,26 @@ const translator = require('translate')
 let updatedRows = 0
 let erroredRows = 0
 
-const getText = (richText) => {
+const getTextFromRichText = (richText) => {
   if (richText && richText.length > 0) {
     return richText[0].plain_text.trim()
   } else {
     return ''
   }
+}
+
+const getTextFromMultiSelect = (multiSelect) => {
+  return ''
+}
+
+const getText = (fieldProperties) => {
+  if ('rich_text' in fieldProperties) {
+    return getTextFromRichText(fieldProperties.rich_text)
+  }
+  if ('multi_select' in fieldProperties) {
+    return getTextFromMultiSelect(fieldProperties.multi_select)
+  }
+  return ''
 }
 
 const getLanguage = (language) => {
@@ -22,28 +36,27 @@ const getLanguage = (language) => {
   return ''
 }
 
-// Configure translator
-const translationEngine = core.getInput('translation_engine')
-const translationKey = core.getInput('translation_key')
-const translationUrl = core.getInput('translation_url')
-if (translationEngine) {
-  translator.engine = translationEngine
-}
-if (translationKey) {
-  translator.key = translationKey
-}
-if (translationUrl) {
-  translator.url = translationUrl
-}
-const defaultLanguageFrom = core.getInput('default_language_from')
-const defaultLanguageTo = core.getInput('default_language_to')
-
 const translate = async ({ notion, rows, fields }) => {
+  // Configure translator
+  const translationEngine = core.getInput('translation_engine')
+  const translationKey = core.getInput('translation_key')
+  const translationUrl = core.getInput('translation_url')
+  if (translationEngine) {
+    translator.engine = translationEngine
+  }
+  if (translationKey) {
+    translator.key = translationKey
+  }
+  if (translationUrl) {
+    translator.url = translationUrl
+  }
+  const defaultLanguageFrom = core.getInput('default_language_from')
+  const defaultLanguageTo = core.getInput('default_language_to')
   for (const row of rows) {
     const translations = {}
     const inputLanguage = fields.language ? getLanguage(row.properties[fields.language]) || defaultLanguageFrom : defaultLanguageFrom
     for (const input of fields.inputs) {
-      const inputText = getText(row.properties[input].rich_text)
+      const inputText = getText(row.properties[input])
       try {
         if (inputText) {
           translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
