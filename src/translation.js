@@ -13,7 +13,15 @@ const getTextFromRichText = (richText) => {
 }
 
 const getTextFromMultiSelect = (multiSelect) => {
-  return []
+  if (multiSelect && multiSelect.length > 0) {
+    values = []
+    for (const value of multiSelect) {
+      values.push(value.name)
+    }
+    return values
+  } else {
+    return []
+  }
 }
 
 const getText = (fieldProperties) => {
@@ -92,6 +100,14 @@ const updateNotionRow = async (row, translations, { notion, fields }) => {
               }
             ]
           }
+        }
+      } else if (row.properties[input].multi_select && translations[input].length > 0) {
+        translated = []
+        for (const translation of translations[input]) {
+          translated.push({name: translation})
+        }
+        properties[fields.translations[input]] = {
+          multi_select: translated
         }
       }
     }
