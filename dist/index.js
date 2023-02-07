@@ -7773,7 +7773,7 @@ const translate = async ({ notion, rows, fields }) => {
           }
         } catch (ex) {
           core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
-          process.exit(1)
+          throw ex
         }
       }
       translations[input] = rowTranslations
