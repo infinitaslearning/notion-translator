@@ -44,6 +44,20 @@ const getLanguage = (language) => {
   return ''
 }
 
+function memoize(method) {
+  let cache = {}
+  return async function() {
+    let args = JSON.stringify(arguments)
+    cache[args] = cache[args] || method.apply(this, arguments)
+    return cache[args]
+  }
+}
+
+const cachedTranslator = memoize(async function(inputText, from, to) {
+  return await translator(inputText, {from: from, to: to})
+})
+
+
 const translate = async ({ notion, rows, fields }) => {
   // Configure translator
   const translationEngine = core.getInput('translation_engine')
@@ -70,7 +84,7 @@ const translate = async ({ notion, rows, fields }) => {
       {
         try {
           if (inputText) {
-            row_translations.push(inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : '')
+            row_translations.push(inputText ? await cachedTranslator(inputText, inputLanguage, defaultLanguageTo) : '')
           }
         } catch (ex) {
           core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
