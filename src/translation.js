@@ -13,14 +13,14 @@ const getTextFromRichText = (richText) => {
 }
 
 const getTextFromMultiSelect = (multiSelect) => {
-  return ''
+  return []
 }
 
 const getText = (fieldProperties) => {
-  if ('rich_text' in fieldProperties) {
-    return getTextFromRichText(fieldProperties.rich_text)
+  if (fieldProperties.rich_text) {
+    return [getTextFromRichText(fieldProperties.rich_text)]
   }
-  if ('multi_select' in fieldProperties) {
+  if (fieldProperties.multi_select) {
     return getTextFromMultiSelect(fieldProperties.multi_select)
   }
   return ''
@@ -28,7 +28,7 @@ const getText = (fieldProperties) => {
 
 const getLanguage = (language) => {
   if (language.rich_text) {
-    return getText(language.rich_text)
+    return getTextFromRichText(language.rich_text)
   }
   if (language.formula) {
     return language.formula[language.formula.type]
@@ -56,15 +56,20 @@ const translate = async ({ notion, rows, fields }) => {
     const translations = {}
     const inputLanguage = fields.language ? getLanguage(row.properties[fields.language]) || defaultLanguageFrom : defaultLanguageFrom
     for (const input of fields.inputs) {
-      const inputText = getText(row.properties[input])
-      try {
-        if (inputText) {
-          translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+      const inputTexts = getText(row.properties[input])
+      row_translations = []
+      for (const inputText of inputTexts)
+      {
+        try {
+          if (inputText) {
+            row_translations.push(inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : '')
+          }
+        } catch (ex) {
+          core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
+          process.exit(1)
         }
-      } catch (ex) {
-        core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
-        process.exit(1)
       }
+      translations[input] = row_translations
     }
     await updateNotionRow(row, translations, { notion, fields })
   }
@@ -75,15 +80,18 @@ const updateNotionRow = async (row, translations, { notion, fields }) => {
   try {
     const properties = {}
     for (const input of fields.inputs) {
-      if (translations[input]) {
-        properties[fields.translations[input]] = {
-          rich_text: [
-            {
-              text: {
-                content: translations[input]
+      if (row.properties[input].rich_text && translations[input].length > 0) {
+        translation = translations[input][0]
+        if (translation) {
+          properties[fields.translations[input]] = {
+            rich_text: [
+              {
+                text: {
+                  content: translation
+                }
               }
-            }
-          ]
+            ]
+          }
         }
       }
     }
