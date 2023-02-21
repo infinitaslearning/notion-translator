@@ -12,8 +12,8 @@ By default integrations cant access any content so you you *must* share your dat
 
 This action expects a Notion database with the following properties, this will become the 
 
-  - Input: text
-  - Result: text
+  - Input: text, multi-selection
+  - Result: text, multi-selection
   - Status: checkbox
   - Language: text  
 
