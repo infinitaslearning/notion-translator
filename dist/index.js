@@ -7631,10 +7631,10 @@ const loadData = async ({ notion }) => {
       structure[dbStructure.properties[property].name] = dbStructure.properties[property].type
     })
 
-    const checkField = (field, type, typeDescription) => {
-      if (!field || structure[field] !== type) {
+    const checkField = (field, types, typeDescriptions) => {
+      if (!field || !types.includes(structure[field])) {
         error = true
-        core.error(`The field ${field} must exist in the Notion database and be of type ${typeDescription} but instead found ${structure[field]}`)
+        core.error(`The field ${field} must exist in the Notion database and be of types: ${typeDescriptions} but instead found ${structure[field]}`)
       }
     }
 
@@ -7645,8 +7645,12 @@ const loadData = async ({ notion }) => {
 
     for (let i = 0; i < inputs.length; i++) {
       translations[inputs[i]] = results[i]
-      checkField(inputs[i], 'rich_text', 'Text')
-      checkField(results[i], 'rich_text', 'Text')
+      checkField(inputs[i], ['rich_text', 'multi_select'], ['Text', 'Multi-Select'])
+      checkField(results[i], ['rich_text', 'multi_select'], ['Text', 'Multi-Select'])
+      if (structure[inputs[i]] !== structure[results[i]]) {
+        error = true
+        core.error(`Input field and result field must be of the same type, but found (${structure[inputs[i]]}) != (${structure[results[i]]})`)
+      }
     }
 
     checkField(status, 'checkbox', 'Checkbox')
@@ -7659,7 +7663,7 @@ const loadData = async ({ notion }) => {
   }
 
   if (error) {
-    process.exit(1)
+    throw new Error('Errors happened during loading of the data')
   }
 
   return {
@@ -7687,7 +7691,7 @@ const translator = __nccwpck_require__(7417)
 let updatedRows = 0
 let erroredRows = 0
 
-const getText = (richText) => {
+const getTextFromRichText = (richText) => {
   if (richText && richText.length > 0) {
     return richText[0].plain_text.trim()
   } else {
@@ -7695,9 +7699,31 @@ const getText = (richText) => {
   }
 }
 
+const getTextFromMultiSelect = (multiSelect) => {
+  if (multiSelect && multiSelect.length > 0) {
+    const values = []
+    for (const value of multiSelect) {
+      values.push(value.name)
+    }
+    return values
+  } else {
+    return []
+  }
+}
+
+const getText = (fieldProperties) => {
+  if (fieldProperties.rich_text) {
+    return [getTextFromRichText(fieldProperties.rich_text)]
+  }
+  if (fieldProperties.multi_select) {
+    return getTextFromMultiSelect(fieldProperties.multi_select)
+  }
+  return ''
+}
+
 const getLanguage = (language) => {
   if (language.rich_text) {
-    return getText(language.rich_text)
+    return getTextFromRichText(language.rich_text)
   }
   if (language.formula) {
     return language.formula[language.formula.type]
@@ -7705,55 +7731,82 @@ const getLanguage = (language) => {
   return ''
 }
 
-// Configure translator
-const translationEngine = core.getInput('translation_engine')
-const translationKey = core.getInput('translation_key')
-const translationUrl = core.getInput('translation_url')
-if (translationEngine) {
-  translator.engine = translationEngine
+function memoize (method) {
+  const cache = {}
+  return async function () {
+    const args = JSON.stringify(arguments)
+    cache[args] = cache[args] || method.apply(this, arguments)
+    return cache[args]
+  }
 }
-if (translationKey) {
-  translator.key = translationKey
-}
-if (translationUrl) {
-  translator.url = translationUrl
-}
-const defaultLanguageFrom = core.getInput('default_language_from')
-const defaultLanguageTo = core.getInput('default_language_to')
 
-const translate = async ({ notion, database, rows, fields }) => {
+const cachedTranslator = memoize(async function (inputText, from, to) {
+  return await translator(inputText, { from: from, to: to })
+})
+
+const translate = async ({ notion, rows, fields }) => {
+  // Configure translator
+  const translationEngine = core.getInput('translation_engine')
+  const translationKey = core.getInput('translation_key')
+  const translationUrl = core.getInput('translation_url')
+  if (translationEngine) {
+    translator.engine = translationEngine
+  }
+  if (translationKey) {
+    translator.key = translationKey
+  }
+  if (translationUrl) {
+    translator.url = translationUrl
+  }
+  const defaultLanguageFrom = core.getInput('default_language_from')
+  const defaultLanguageTo = core.getInput('default_language_to')
   for (const row of rows) {
     const translations = {}
     const inputLanguage = fields.language ? getLanguage(row.properties[fields.language]) || defaultLanguageFrom : defaultLanguageFrom
     for (const input of fields.inputs) {
-      const inputText = getText(row.properties[input].rich_text)
-      try {
-        if (inputText) {
-          translations[input] = inputText ? await translator(inputText, { from: inputLanguage, to: defaultLanguageTo }) : ''
+      const inputTexts = getText(row.properties[input])
+      const rowTranslations = []
+      for (const inputText of inputTexts) {
+        try {
+          if (inputText) {
+            rowTranslations.push(inputText ? await cachedTranslator(inputText, inputLanguage, defaultLanguageTo) : '')
+          }
+        } catch (ex) {
+          core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
+          throw ex
         }
-      } catch (ex) {
-        core.error(`Error with translation ${ex.message} [${inputText} from ${inputLanguage} to ${defaultLanguageTo}]`)
-        process.exit(1)
       }
+      translations[input] = rowTranslations
     }
-    await updateNotionRow(row, translations, { notion, database, fields })
+    await updateNotionRow(row, translations, { notion, fields })
   }
   core.info(`Completed with ${updatedRows} created and ${erroredRows} with errors`)
 }
 
-const updateNotionRow = async (row, translations, { notion, database, fields }) => {
+const updateNotionRow = async (row, translations, { notion, fields }) => {
   try {
     const properties = {}
     for (const input of fields.inputs) {
-      if (translations[input]) {
-        properties[fields.translations[input]] = {
-          rich_text: [
-            {
-              text: {
-                content: translations[input]
+      if (row.properties[input].rich_text && translations[input].length > 0) {
+        const translation = translations[input][0]
+        if (translation) {
+          properties[fields.translations[input]] = {
+            rich_text: [
+              {
+                text: {
+                  content: translation
+                }
               }
-            }
-          ]
+            ]
+          }
+        }
+      } else if (row.properties[input].multi_select && translations[input].length > 0) {
+        const translated = []
+        for (const translation of translations[input]) {
+          translated.push({ name: translation })
+        }
+        properties[fields.translations[input]] = {
+          multi_select: translated
         }
       }
     }
@@ -7962,35 +8015,44 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
+var exports = __webpack_exports__;
 const core = __nccwpck_require__(2186)
 const { Client, LogLevel } = __nccwpck_require__(324)
 const { loadData } = __nccwpck_require__(7639)
 const { translate } = __nccwpck_require__(2008)
 
-try {
-  const NOTION_TOKEN = core.getInput('notion_token')
-  const database = core.getInput('database')
+const main = async () => {
+  try {
+    const NOTION_TOKEN = core.getInput('notion_token')
 
-  core.debug('Creating notion client ...')
-  const notion = new Client({
-    auth: NOTION_TOKEN,
-    logLevel: LogLevel.ERROR
-  })
+    core.debug('Creating notion client ...')
+    const notion = new Client({
+      auth: NOTION_TOKEN,
+      logLevel: LogLevel.ERROR
+    })
 
-  const refreshData = async () => {
-    core.startGroup('🗂️  Loading data to translate ...')
-    const { rows, fields } = await loadData({ core, notion })
-    core.info(`Found ${rows.length} rows in the database to translate`)
-    core.endGroup()
-    core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
-    await translate({ core, notion, rows, fields, database })
-    core.endGroup()
+    const refreshData = async () => {
+      core.startGroup('🗂️  Loading data to translate ...')
+      const { rows, fields } = await loadData({ core, notion })
+      core.info(`Found ${rows.length} rows in the database to translate`)
+      core.endGroup()
+      core.startGroup(`🗂️  Translating ${rows.length} rows with ${fields.inputs.length} input fields ...`)
+      await translate({ notion, rows, fields })
+      core.endGroup()
+    }
+    await refreshData()
+    return true
+  } catch (error) {
+    core.setFailed(error.message)
+    return false
   }
-
-  refreshData()
-} catch (error) {
-  core.setFailed(error.message)
 }
+
+if (require.main === require.cache[eval('__filename')]) {
+  main()
+}
+
+exports.main = main
 
 })();
 
